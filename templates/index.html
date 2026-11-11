@@ -1,0 +1,1315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PharmaTrack | Intelligent NoSQL Pharmacy Platform</title>
+  
+  <!-- Inter Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            brand: {
+              50: '#f0fdf4',
+              100: '#dcfce7',
+              200: '#bbf7d0',
+              500: '#22c55e',
+              600: '#16a34a',
+              700: '#15803d',
+              900: '#14532d',
+            },
+            accent: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- Alpine.js -->
+  <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    [x-cloak] { display: none !important; }
+    .glass-panel {
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(226, 232, 240, 0.8);
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased min-h-screen flex flex-col"
+      x-data="pharmaApp()"
+      x-init="initApp()"
+      x-cloak>
+
+  <!-- TOP APP BAR -->
+  <header class="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-200 shadow-xs">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        
+        <!-- Brand & Badges -->
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-emerald-400 flex items-center justify-center text-white shadow-md shadow-brand-500/20">
+            <i data-lucide="pill" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <div class="flex items-center space-x-2">
+              <span class="font-extrabold text-lg tracking-tight bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">PharmaTrack</span>
+              <span class="text-xs px-2 py-0.5 rounded-full font-semibold bg-brand-50 text-brand-700 border border-brand-200">NoSQL Engine</span>
+            </div>
+            <p class="text-xs text-slate-500 font-medium">CSE494: Intelligent NoSQL Databases</p>
+          </div>
+        </div>
+
+        <!-- Center Database Status Pill -->
+        <div class="hidden md:flex items-center space-x-2 px-3 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-xs font-medium">
+          <span class="w-2 h-2 rounded-full" :class="dbStatus.is_mock ? 'bg-amber-400 animate-pulse' : 'bg-emerald-500 animate-pulse'"></span>
+          <span class="text-slate-600" x-text="dbStatus.is_mock ? 'In-Memory Mock Mongo' : 'Live MongoDB Instance'"></span>
+          <span class="text-slate-300">|</span>
+          <span class="text-slate-700 font-mono" x-text="dbStatus.db_name || 'pharmatrack_db'"></span>
+        </div>
+
+        <!-- Right Quick Actions -->
+        <div class="flex items-center space-x-3">
+          <button @click="seedData()" 
+                  :disabled="loading"
+                  class="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-xs transition active:scale-95">
+            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5 text-slate-500" :class="loading ? 'animate-spin' : ''"></i>
+            <span>Reset / Seed Data</span>
+          </button>
+          
+          <button @click="openModal('addMed')"
+                  class="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-brand-600 hover:bg-brand-700 text-white shadow-sm shadow-brand-600/30 transition active:scale-95">
+            <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+            <span>Add Medicine</span>
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </header>
+
+  <!-- NAVIGATION TABS -->
+  <div class="border-b border-slate-200 bg-white shadow-xs">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <nav class="flex space-x-1 sm:space-x-4 py-2 overflow-x-auto no-scrollbar" aria-label="Tabs">
+        
+        <button @click="activeTab = 'dashboard'"
+                :class="activeTab === 'dashboard' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'"
+                class="flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold transition whitespace-nowrap">
+          <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+          <span>Overview & KPIs</span>
+        </button>
+
+        <button @click="activeTab = 'inventory'"
+                :class="activeTab === 'inventory' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'"
+                class="flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold transition whitespace-nowrap">
+          <i data-lucide="boxes" class="w-4 h-4"></i>
+          <span>Inventory & Batches</span>
+          <span class="px-1.5 py-0.2 rounded-full text-xs font-mono" :class="activeTab === 'inventory' ? 'bg-slate-700 text-white' : 'bg-slate-200 text-slate-700'" x-text="medicines.length"></span>
+        </button>
+
+        <button @click="activeTab = 'pos'"
+                :class="activeTab === 'pos' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'"
+                class="flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold transition whitespace-nowrap">
+          <i data-lucide="shopping-cart" class="w-4 h-4"></i>
+          <span>Dispensing POS</span>
+        </button>
+
+        <button @click="activeTab = 'aggregations'"
+                :class="activeTab === 'aggregations' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'"
+                class="flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold transition whitespace-nowrap">
+          <i data-lucide="line-chart" class="w-4 h-4"></i>
+          <span>Aggregation Intelligence</span>
+        </button>
+
+        <button @click="activeTab = 'validation'"
+                :class="activeTab === 'validation' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'"
+                class="flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold transition whitespace-nowrap">
+          <i data-lucide="shield-alert" class="w-4 h-4"></i>
+          <span>Schema Validation Shield</span>
+        </button>
+
+      </nav>
+    </div>
+  </div>
+
+  <!-- MAIN APP CONTAINER -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+    <!-- ======================================================== -->
+    <!-- TAB 1: OVERVIEW & KPIS                                  -->
+    <!-- ======================================================== -->
+    <div x-show="activeTab === 'dashboard'" x-transition class="space-y-6">
+      
+      <!-- Top Metric Cards Grid -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        
+        <!-- Total SKUs -->
+        <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs hover:shadow-md transition">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Registered SKUs</span>
+            <div class="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+              <i data-lucide="package" class="w-5 h-5"></i>
+            </div>
+          </div>
+          <div class="mt-3">
+            <h3 class="text-2xl font-black text-slate-900" x-text="dbStatus.total_medicines || 0"></h3>
+            <p class="text-xs text-slate-500 mt-1 flex items-center space-x-1">
+              <span class="text-emerald-600 font-semibold flex items-center">
+                <i data-lucide="check-circle" class="w-3 h-3 mr-0.5"></i> Active Catalog
+              </span>
+            </p>
+          </div>
+        </div>
+
+        <!-- Inventory Valuation -->
+        <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs hover:shadow-md transition">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Valuation</span>
+            <div class="w-9 h-9 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
+              <i data-lucide="indian-rupee" class="w-5 h-5"></i>
+            </div>
+          </div>
+          <div class="mt-3">
+            <h3 class="text-2xl font-black text-slate-900" x-text="'₹' + formatNum(facets.total_valuation?.total_retail_value || 0)"></h3>
+            <p class="text-xs text-slate-500 mt-1">
+              <span class="font-semibold text-slate-700" x-text="formatNum(facets.total_valuation?.total_units || 0)"></span> units in stock
+            </p>
+          </div>
+        </div>
+
+        <!-- Near-Expiry Alert Metric -->
+        <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs hover:shadow-md transition">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Near Expiry (&lt;30d)</span>
+            <div class="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
+              <i data-lucide="clock" class="w-5 h-5"></i>
+            </div>
+          </div>
+          <div class="mt-3">
+            <h3 class="text-2xl font-black text-rose-600" x-text="nearExpiryBatches.length"></h3>
+            <p class="text-xs text-rose-700 mt-1 font-medium">
+              Batches require immediate dispensing
+            </p>
+          </div>
+        </div>
+
+        <!-- Low Stock Alerts -->
+        <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs hover:shadow-md transition">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Reorder Alerts</span>
+            <div class="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+              <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+            </div>
+          </div>
+          <div class="mt-3">
+            <h3 class="text-2xl font-black text-amber-600" x-text="lowStockMedicines.length"></h3>
+            <p class="text-xs text-amber-700 mt-1 font-medium">
+              Medicines below safety buffer
+            </p>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Charts & Tables Split Section -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Category Sales Chart (2 cols) -->
+        <div class="lg:col-span-2 bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h3 class="text-base font-bold text-slate-900">Revenue by Therapeutic Category</h3>
+              <p class="text-xs text-slate-500">Cross-collection $lookup and $group aggregation</p>
+            </div>
+            <span class="text-xs px-2.5 py-1 rounded-full font-medium bg-slate-100 text-slate-600 font-mono">Live Aggregation</span>
+          </div>
+          <div class="relative h-64">
+            <canvas id="categoryRevenueChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Urgent Critical Batches Quick List (1 col) -->
+        <div class="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-base font-bold text-slate-900">Urgent Expiry Queue</h3>
+              <span class="text-xs text-rose-600 font-bold bg-rose-50 px-2 py-0.5 rounded-full border border-rose-100">&lt; 30 Days</span>
+            </div>
+            <p class="text-xs text-slate-500 mb-4">Batches detected via `$unwind` and date filtering</p>
+            
+            <div class="space-y-2.5 max-h-64 overflow-y-auto custom-scrollbar pr-1">
+              <template x-for="b in nearExpiryBatches.slice(0, 5)" :key="b.batch_no">
+                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200/60 flex items-center justify-between text-xs">
+                  <div>
+                    <p class="font-bold text-slate-900" x-text="b.name"></p>
+                    <p class="text-slate-500 text-[11px]">Batch: <span class="font-mono text-slate-700" x-text="b.batch_no"></span> | Qty: <span class="font-bold text-slate-800" x-text="b.quantity"></span></p>
+                  </div>
+                  <div class="text-right">
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-100 text-rose-800" x-text="b.days_left + ' days left'"></span>
+                    <p class="text-slate-600 font-semibold mt-0.5" x-text="'₹' + formatNum(b.at_risk_value)"></p>
+                  </div>
+                </div>
+              </template>
+              <div x-show="nearExpiryBatches.length === 0" class="text-center py-8 text-slate-400 text-xs">
+                No batches expiring soon. Stock is healthy!
+              </div>
+            </div>
+          </div>
+          <button @click="activeTab = 'aggregations'" class="mt-4 w-full py-2 rounded-xl text-xs font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 transition">
+            Open Full Aggregation Analytics →
+          </button>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- TAB 2: INVENTORY & BATCHES (REACT-STYLE TABLE)           -->
+    <!-- ======================================================== -->
+    <div x-show="activeTab === 'inventory'" x-transition class="space-y-5">
+      
+      <!-- Action Bar -->
+      <div class="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4">
+        
+        <!-- Search & Filter Controls -->
+        <div class="flex flex-1 items-center space-x-3 w-full sm:w-auto">
+          <div class="relative flex-1 max-w-md">
+            <i data-lucide="search" class="w-4 h-4 absolute left-3 top-3 text-slate-400"></i>
+            <input type="text" 
+                   x-model="searchQuery" 
+                   @input.debounce.300ms="fetchMedicines()"
+                   placeholder="Search by drug name or generic constituent..."
+                   class="w-full pl-9 pr-4 py-2 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition">
+          </div>
+          
+          <select x-model="selectedCategory" 
+                  @change="fetchMedicines()"
+                  class="text-xs py-2 px-3 rounded-xl border border-slate-200 bg-white text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-brand-500/20">
+            <option value="">All Categories</option>
+            <template x-for="cat in categories" :key="cat">
+              <option :value="cat" x-text="cat"></option>
+            </template>
+          </select>
+        </div>
+
+        <!-- Add Button -->
+        <button @click="openModal('addMed')"
+                class="w-full sm:w-auto inline-flex items-center justify-center space-x-2 px-4 py-2 rounded-xl text-xs font-bold bg-brand-600 hover:bg-brand-700 text-white shadow-sm transition">
+          <i data-lucide="plus-circle" class="w-4 h-4"></i>
+          <span>Add New Drug</span>
+        </button>
+
+      </div>
+
+      <!-- Modern Data Table -->
+      <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-slate-200 text-left text-xs">
+            <thead class="bg-slate-50/75 text-slate-600 font-bold uppercase tracking-wider text-[10px]">
+              <tr>
+                <th class="py-3.5 px-4">Drug Info</th>
+                <th class="py-3.5 px-4">Category</th>
+                <th class="py-3.5 px-4">Manufacturer</th>
+                <th class="py-3.5 px-4">Rx Type</th>
+                <th class="py-3.5 px-4">Total Stock</th>
+                <th class="py-3.5 px-4">Embedded Batches ($unwindable)</th>
+                <th class="py-3.5 px-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              <template x-for="m in medicines" :key="m.medicine_id">
+                <tr class="hover:bg-slate-50/80 transition">
+                  <!-- Drug Info -->
+                  <td class="py-3.5 px-4">
+                    <div class="flex items-center space-x-2.5">
+                      <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-xs">
+                        <i data-lucide="capsule" class="w-4 h-4"></i>
+                      </div>
+                      <div>
+                        <div class="font-bold text-slate-900" x-text="m.name"></div>
+                        <div class="text-[11px] text-slate-400 font-mono" x-text="m.medicine_id"></div>
+                      </div>
+                    </div>
+                  </td>
+                  
+                  <!-- Category -->
+                  <td class="py-3.5 px-4">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200" x-text="m.category"></span>
+                  </td>
+
+                  <!-- Manufacturer -->
+                  <td class="py-3.5 px-4 text-slate-600 font-medium" x-text="m.manufacturer || 'Standard'"></td>
+
+                  <!-- Rx Type -->
+                  <td class="py-3.5 px-4">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold"
+                          :class="m.prescription_required ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-blue-50 text-blue-700 border border-blue-200'"
+                          x-text="m.prescription_required ? 'Rx Prescribed' : 'OTC'"></span>
+                  </td>
+
+                  <!-- Total Stock -->
+                  <td class="py-3.5 px-4">
+                    <div class="font-extrabold text-slate-900" x-text="getTotalStock(m)"></div>
+                    <div class="text-[10px] text-slate-400" x-text="'Min: ' + m.min_reorder_level"></div>
+                  </td>
+
+                  <!-- Batches -->
+                  <td class="py-3.5 px-4">
+                    <div class="flex flex-wrap gap-1.5 max-w-xs">
+                      <template x-for="b in (m.batches || [])" :key="b.batch_no">
+                        <span class="inline-flex items-center space-x-1 px-2 py-0.5 rounded-lg text-[10px] bg-slate-100 text-slate-700 border border-slate-200 font-mono">
+                          <span class="font-bold text-slate-900" x-text="b.batch_no"></span>
+                          <span class="text-slate-400">•</span>
+                          <span class="text-emerald-700 font-semibold" x-text="b.quantity + 'u'"></span>
+                          <button @click="deleteBatch(m.medicine_id, b.batch_no)" title="Remove batch" class="text-slate-400 hover:text-rose-600 ml-1">×</button>
+                        </span>
+                      </template>
+                      <button @click="openAddBatchModal(m)" class="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded text-[10px] font-bold text-brand-700 hover:bg-brand-50 border border-dashed border-brand-300">
+                        <i data-lucide="plus" class="w-3 h-3"></i> <span>Batch</span>
+                      </button>
+                    </div>
+                  </td>
+
+                  <!-- Actions -->
+                  <td class="py-3.5 px-4 text-right">
+                    <div class="inline-flex items-center space-x-1.5">
+                      <button @click="openAddBatchModal(m)" title="Add Batch ($push)" class="p-1.5 rounded-lg text-slate-500 hover:text-brand-600 hover:bg-brand-50 transition">
+                        <i data-lucide="package-plus" class="w-4 h-4"></i>
+                      </button>
+                      <button @click="deleteMedicine(m.medicine_id, m.name)" title="Delete Medicine" class="p-1.5 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                      </button>
+                    </div>
+                  </td>
+
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- TAB 3: DISPENSING POINT-OF-SALE (POS)                   -->
+    <!-- ======================================================== -->
+    <div x-show="activeTab === 'pos'" x-transition class="space-y-6">
+      
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- POS Form (2 cols) -->
+        <div class="lg:col-span-2 bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs space-y-5">
+          <div class="flex items-center space-x-3 pb-4 border-b border-slate-100">
+            <div class="w-10 h-10 rounded-xl bg-accent-50 text-accent-600 flex items-center justify-center">
+              <i data-lucide="calculator" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h3 class="text-base font-bold text-slate-900">Dispense Medication & Checkout</h3>
+              <p class="text-xs text-slate-500">Atomic inventory deduction using MongoDB `$inc` operator</p>
+            </div>
+          </div>
+
+          <!-- Medicine Selector -->
+          <div class="space-y-1.5">
+            <label class="text-xs font-bold text-slate-700">Select Medicine to Dispense *</label>
+            <select x-model="posMedId" @change="onPosMedChange()" class="w-full text-xs py-2.5 px-3 rounded-xl border border-slate-200 bg-white">
+              <option value="">-- Choose in-stock drug --</option>
+              <template x-for="m in inStockMedicines" :key="m.medicine_id">
+                <option :value="m.medicine_id" x-text="m.name + ' (' + m.category + ') - Stock: ' + getTotalStock(m)"></option>
+              </template>
+            </select>
+          </div>
+
+          <!-- Batch & Qty Grid -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4" x-show="selectedPosMed">
+            <!-- Batch -->
+            <div class="space-y-1.5">
+              <label class="text-xs font-bold text-slate-700">Select Batch *</label>
+              <select x-model="posBatchNo" @change="onPosBatchChange()" class="w-full text-xs py-2.5 px-3 rounded-xl border border-slate-200 bg-white">
+                <template x-for="b in (selectedPosMed?.batches || []).filter(b => b.quantity > 0)" :key="b.batch_no">
+                  <option :value="b.batch_no" x-text="'Batch ' + b.batch_no + ' | Stock: ' + b.quantity + ' | ₹' + b.selling_price"></option>
+                </template>
+              </select>
+            </div>
+
+            <!-- Qty -->
+            <div class="space-y-1.5">
+              <label class="text-xs font-bold text-slate-700">Dispense Quantity *</label>
+              <input type="number" min="1" :max="selectedPosBatch?.quantity || 1" x-model="posQty" 
+                     class="w-full text-xs py-2.5 px-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-brand-500/20">
+            </div>
+          </div>
+
+          <!-- Customer Info -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div class="space-y-1.5">
+              <label class="text-xs font-bold text-slate-700">Patient / Customer</label>
+              <input type="text" x-model="posCustomer" class="w-full text-xs py-2.5 px-3 rounded-xl border border-slate-200">
+            </div>
+            <div class="space-y-1.5">
+              <label class="text-xs font-bold text-slate-700">Contact Number</label>
+              <input type="text" x-model="posPhone" class="w-full text-xs py-2.5 px-3 rounded-xl border border-slate-200">
+            </div>
+            <div class="space-y-1.5">
+              <label class="text-xs font-bold text-slate-700">Payment Mode</label>
+              <select x-model="posPayment" class="w-full text-xs py-2.5 px-3 rounded-xl border border-slate-200 bg-white">
+                <option value="UPI">UPI Payment</option>
+                <option value="CASH">Cash Counter</option>
+                <option value="CARD">Debit / Credit Card</option>
+                <option value="NET_BANKING">Net Banking</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Bill Summary Card -->
+          <div class="p-4 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between">
+            <div>
+              <span class="text-xs font-medium text-slate-500">Total Invoice Amount:</span>
+              <div class="text-2xl font-black text-slate-900" x-text="'₹' + formatNum((posQty * (selectedPosBatch?.selling_price || 0)))"></div>
+            </div>
+            <button @click="processCheckout()" 
+                    :disabled="!selectedPosBatch || posQty <= 0"
+                    class="px-5 py-2.5 rounded-xl font-bold text-xs bg-brand-600 hover:bg-brand-700 text-white shadow-md shadow-brand-600/30 transition disabled:opacity-50 disabled:cursor-not-allowed">
+              Complete Sale & Record ($inc)
+            </button>
+          </div>
+
+        </div>
+
+        <!-- Recent Invoices Sidebar (1 col) -->
+        <div class="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-base font-bold text-slate-900">Recent Invoices</h3>
+              <i data-lucide="receipt" class="w-4 h-4 text-slate-400"></i>
+            </div>
+            <div class="space-y-3 max-h-96 overflow-y-auto custom-scrollbar pr-1">
+              <template x-for="s in sales" :key="s.invoice_no">
+                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200/60 text-xs space-y-1">
+                  <div class="flex items-center justify-between">
+                    <span class="font-mono font-bold text-slate-800" x-text="s.invoice_no"></span>
+                    <span class="font-black text-slate-900" x-text="'₹' + formatNum(s.total_amount)"></span>
+                  </div>
+                  <div class="text-[11px] text-slate-500 flex items-center justify-between">
+                    <span x-text="s.customer?.name || 'Walk-in'"></span>
+                    <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800" x-text="s.payment_mode"></span>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- TAB 4: AGGREGATIONS & VIVA QUERY INSPECTOR              -->
+    <!-- ======================================================== -->
+    <div x-show="activeTab === 'aggregations'" x-transition class="space-y-6">
+      
+      <!-- Viva Header Banner -->
+      <div class="p-5 rounded-2xl bg-gradient-to-r from-slate-900 to-indigo-950 text-white shadow-md flex items-center justify-between">
+        <div>
+          <div class="flex items-center space-x-2">
+            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-400 text-slate-900">Analytics Intelligence</span>
+            <span class="text-xs text-indigo-200">CO6: Multi-Stage Aggregation Pipelines</span>
+          </div>
+          <h2 class="text-xl font-extrabold mt-1 text-white">MongoDB Aggregation Framework Live Inspector</h2>
+          <p class="text-xs text-slate-300 mt-0.5">Demonstrating $match, $unwind, $group, $lookup, $project, and $facet live against project data.</p>
+        </div>
+        <div class="hidden sm:block text-right">
+          <span class="text-xs text-slate-400">Pipeline Count</span>
+          <p class="text-2xl font-black text-white">5 Pipelines</p>
+        </div>
+      </div>
+
+      <!-- Aggregation 1: Near Expiry with interactive slider -->
+      <div class="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h3 class="text-base font-bold text-slate-900 flex items-center space-x-2">
+              <span>Pipeline 1: Near-Expiry Drug Discovery</span>
+              <span class="text-xs font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-semibold">$unwind + $match + $sort</span>
+            </h3>
+            <p class="text-xs text-slate-500">Unwinds batches array and filters by expiry date horizon</p>
+          </div>
+          <div class="flex items-center space-x-3 text-xs">
+            <span class="font-bold text-slate-700">Window: <span class="text-brand-600 font-black" x-text="expiryDays + ' Days'"></span></span>
+            <input type="range" min="7" max="180" step="7" x-model="expiryDays" @input="fetchNearExpiry()" class="accent-brand-600 cursor-pointer">
+          </div>
+        </div>
+
+        <!-- Table -->
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-slate-100 text-xs">
+            <thead class="bg-slate-50 text-slate-500 font-bold uppercase text-[10px]">
+              <tr>
+                <th class="py-2.5 px-3 text-left">Medicine</th>
+                <th class="py-2.5 px-3 text-left">Batch No</th>
+                <th class="py-2.5 px-3 text-left">Category</th>
+                <th class="py-2.5 px-3 text-left">Days Remaining</th>
+                <th class="py-2.5 px-3 text-left">Units at Risk</th>
+                <th class="py-2.5 px-3 text-right">Procurement Value at Risk</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 font-medium">
+              <template x-for="b in nearExpiryBatches" :key="b.batch_no">
+                <tr class="hover:bg-slate-50">
+                  <td class="py-2.5 px-3 font-bold text-slate-900" x-text="b.name"></td>
+                  <td class="py-2.5 px-3 font-mono text-slate-600" x-text="b.batch_no"></td>
+                  <td class="py-2.5 px-3 text-slate-600" x-text="b.category"></td>
+                  <td class="py-2.5 px-3">
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold"
+                          :class="b.days_left <= 15 ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800'"
+                          x-text="b.days_left + ' days'"></span>
+                  </td>
+                  <td class="py-2.5 px-3 text-slate-900 font-bold" x-text="b.quantity"></td>
+                  <td class="py-2.5 px-3 text-right font-extrabold text-rose-600" x-text="'₹' + formatNum(b.at_risk_value)"></td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Code Block -->
+        <details class="text-xs bg-slate-950 text-slate-300 rounded-xl p-3 font-mono">
+          <summary class="cursor-pointer text-slate-400 font-semibold hover:text-white">Click to view raw MongoDB Pipeline Code</summary>
+          <pre class="mt-2 text-emerald-400 overflow-x-auto text-[11px]">
+db.medicines.aggregate([
+  { "$unwind": "$batches" },
+  { "$match": { "batches.quantity": { "$gt": 0 }, "batches.expiry_date": { "$lte": target_date } } },
+  { "$project": {
+      "name": 1,
+      "batch_no": "$batches.batch_no",
+      "quantity": "$batches.quantity",
+      "at_risk_value": { "$multiply": ["$batches.quantity", "$batches.cost_price"] }
+  }},
+  { "$sort": { "batches.expiry_date": 1 } }
+])</pre>
+        </details>
+      </div>
+
+      <!-- Aggregation 2: Low-Stock Reorder -->
+      <div class="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs space-y-4">
+        <h3 class="text-base font-bold text-slate-900 flex items-center space-x-2">
+          <span>Pipeline 2: Low-Stock Reorder Threshold Engine</span>
+          <span class="text-xs font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-semibold">$project + $sum + $match</span>
+        </h3>
+        <p class="text-xs text-slate-500">Computes dynamic total stock across all embedded batches via `$sum` and compares with `min_reorder_level`</p>
+
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-slate-100 text-xs">
+            <thead class="bg-slate-50 text-slate-500 font-bold uppercase text-[10px]">
+              <tr>
+                <th class="py-2.5 px-3 text-left">Medicine</th>
+                <th class="py-2.5 px-3 text-left">Category</th>
+                <th class="py-2.5 px-3 text-left">Current Stock</th>
+                <th class="py-2.5 px-3 text-left">Reorder Minimum</th>
+                <th class="py-2.5 px-3 text-left">Deficit Units</th>
+                <th class="py-2.5 px-3 text-right">Status Flag</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 font-medium">
+              <template x-for="ls in lowStockMedicines" :key="ls.medicine_id">
+                <tr class="hover:bg-slate-50">
+                  <td class="py-2.5 px-3 font-bold text-slate-900" x-text="ls.name"></td>
+                  <td class="py-2.5 px-3 text-slate-600" x-text="ls.category"></td>
+                  <td class="py-2.5 px-3 font-black text-rose-600" x-text="ls.total_stock"></td>
+                  <td class="py-2.5 px-3 text-slate-700 font-bold" x-text="ls.min_reorder_level"></td>
+                  <td class="py-2.5 px-3 font-mono font-bold text-amber-600" x-text="'+' + ls.deficit"></td>
+                  <td class="py-2.5 px-3 text-right">
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-100 text-rose-800" x-text="ls.status"></span>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Aggregation 3: Category Revenue ($lookup cross-collection join) -->
+      <div class="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs space-y-4">
+        <h3 class="text-base font-bold text-slate-900 flex items-center space-x-2">
+          <span>Pipeline 3: Category Revenue Breakdown</span>
+          <span class="text-xs font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-semibold">$unwind + $lookup + $group + $sort</span>
+        </h3>
+        <p class="text-xs text-slate-500">Cross-collection JOIN of `sales` to `medicines` via `$lookup`, grouping revenue and units sold by therapeutic category</p>
+
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-slate-100 text-xs">
+            <thead class="bg-slate-50 text-slate-500 font-bold uppercase text-[10px]">
+              <tr>
+                <th class="py-2.5 px-3 text-left">Therapeutic Category</th>
+                <th class="py-2.5 px-3 text-right">Total Revenue</th>
+                <th class="py-2.5 px-3 text-right">Units Sold</th>
+                <th class="py-2.5 px-3 text-right">Invoices</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 font-medium">
+              <template x-for="cr in categoryRevenue" :key="cr.category">
+                <tr class="hover:bg-slate-50">
+                  <td class="py-2.5 px-3 font-bold text-slate-900" x-text="cr.category"></td>
+                  <td class="py-2.5 px-3 text-right font-black text-emerald-600" x-text="'₹' + formatNum(cr.total_revenue)"></td>
+                  <td class="py-2.5 px-3 text-right text-slate-700 font-bold" x-text="cr.units_sold"></td>
+                  <td class="py-2.5 px-3 text-right text-slate-600" x-text="cr.transaction_count"></td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Aggregation 4: Top Best-Sellers -->
+      <div class="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs space-y-4">
+        <h3 class="text-base font-bold text-slate-900 flex items-center space-x-2">
+          <span>Pipeline 4: Top-5 Fast-Moving Drugs</span>
+          <span class="text-xs font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-semibold">$unwind + $group + $sort + $limit</span>
+        </h3>
+        <p class="text-xs text-slate-500">Ranks the fastest-moving medicines by total units dispensed across all sales invoices</p>
+
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-slate-100 text-xs">
+            <thead class="bg-slate-50 text-slate-500 font-bold uppercase text-[10px]">
+              <tr>
+                <th class="py-2.5 px-3 text-left">Rank</th>
+                <th class="py-2.5 px-3 text-left">Medicine</th>
+                <th class="py-2.5 px-3 text-right">Units Sold</th>
+                <th class="py-2.5 px-3 text-right">Total Revenue</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 font-medium">
+              <template x-for="(ts, idx) in topSellers" :key="ts.medicine_name">
+                <tr class="hover:bg-slate-50">
+                  <td class="py-2.5 px-3 font-black text-brand-600" x-text="'#' + (idx + 1)"></td>
+                  <td class="py-2.5 px-3 font-bold text-slate-900" x-text="ts.medicine_name"></td>
+                  <td class="py-2.5 px-3 text-right font-black text-slate-900" x-text="ts.units_sold"></td>
+                  <td class="py-2.5 px-3 text-right text-emerald-600 font-bold" x-text="'₹' + formatNum(ts.total_revenue)"></td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Aggregation 5: Multi-Faceted Inventory Health ($facet) -->
+      <div class="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs space-y-4">
+        <h3 class="text-base font-bold text-slate-900 flex items-center space-x-2">
+          <span>Pipeline 5: Multi-Faceted Inventory Health</span>
+          <span class="text-xs font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-semibold">$facet</span>
+        </h3>
+        <p class="text-xs text-slate-500">A single query returning three independent sub-pipelines at once: total valuation, SKU distribution, and prescription ratio</p>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="p-4 rounded-xl bg-slate-50 border border-slate-200/80">
+            <p class="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Total Units in Stock</p>
+            <p class="text-xl font-black text-slate-900 mt-1" x-text="formatNum(facets?.total_valuation?.total_units)"></p>
+          </div>
+          <div class="p-4 rounded-xl bg-slate-50 border border-slate-200/80">
+            <p class="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Procurement Cost Value</p>
+            <p class="text-xl font-black text-amber-600 mt-1" x-text="'₹' + formatNum(facets?.total_valuation?.total_cost_value)"></p>
+          </div>
+          <div class="p-4 rounded-xl bg-slate-50 border border-slate-200/80">
+            <p class="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Projected Retail Value</p>
+            <p class="text-xl font-black text-emerald-600 mt-1" x-text="'₹' + formatNum(facets?.total_valuation?.total_retail_value)"></p>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-slate-100 text-xs">
+            <thead class="bg-slate-50 text-slate-500 font-bold uppercase text-[10px]">
+              <tr>
+                <th class="py-2.5 px-3 text-left">Category (SKU Distribution facet)</th>
+                <th class="py-2.5 px-3 text-right">SKU Count</th>
+                <th class="py-2.5 px-3 text-right">Total Batches</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 font-medium">
+              <template x-for="cs in (facets?.category_stock || [])" :key="cs._id">
+                <tr class="hover:bg-slate-50">
+                  <td class="py-2.5 px-3 font-bold text-slate-900" x-text="cs._id"></td>
+                  <td class="py-2.5 px-3 text-right text-slate-700 font-bold" x-text="cs.sku_count"></td>
+                  <td class="py-2.5 px-3 text-right text-slate-600" x-text="cs.total_batches"></td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- TAB 5: SCHEMA VALIDATION SHIELD                         -->
+    <!-- ======================================================== -->
+    <div x-show="activeTab === 'validation'" x-transition class="space-y-6">
+      
+      <div class="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs space-y-4">
+        <div>
+          <h3 class="text-lg font-bold text-slate-900 flex items-center space-x-2">
+            <i data-lucide="shield-check" class="w-5 h-5 text-emerald-600"></i>
+            <span>MongoDB Native `$jsonSchema` Validation Shield</span>
+          </h3>
+          <p class="text-xs text-slate-500 mt-1">
+            Examiner Question: <em>"How does MongoDB prevent dirty data without relational constraints?"</em><br>
+            Answer: MongoDB enforces schema validation at the engine level via `$jsonSchema` rules attached to collections.
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-3">
+          
+          <!-- Interactive Test Panel -->
+          <div class="p-5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-4">
+            <h4 class="text-sm font-bold text-slate-800">🧪 Live Rejection Test</h4>
+            <p class="text-xs text-slate-600">Click below to attempt inserting an illegal medicine document containing:</p>
+            <ul class="text-xs text-slate-500 list-disc list-inside space-y-1 font-mono">
+              <li>Invalid category: <span class="text-rose-600">'InvalidCategory_XYZ'</span> (Violates enum)</li>
+              <li>Negative stock: <span class="text-rose-600">-10 units</span> (Violates minimum 0)</li>
+              <li>Negative price: <span class="text-rose-600">-25.00 INR</span> (Violates minimum 0.01)</li>
+            </ul>
+
+            <button @click="testValidation()" 
+                    :disabled="testingVal"
+                    class="w-full py-2.5 rounded-xl font-bold text-xs bg-rose-600 hover:bg-rose-700 text-white shadow-sm transition active:scale-95">
+              <span x-text="testingVal ? 'Submitting to MongoDB...' : 'Trigger Illegal Insert Query'"></span>
+            </button>
+
+            <!-- Test Result Card -->
+            <div x-show="valTestResult" class="p-4 rounded-xl text-xs space-y-1.5 transition"
+                 :class="valTestResult?.expected_error_caught ? 'bg-emerald-50 border border-emerald-200 text-emerald-900' : 'bg-rose-50 border border-rose-200 text-rose-900'">
+              <div class="flex items-center space-x-1.5 font-bold">
+                <i data-lucide="check-circle" class="w-4 h-4 text-emerald-600"></i>
+                <span>MongoDB Validator Successfully Blocked Illegal Document!</span>
+              </div>
+              <p class="text-[11px] font-mono break-all text-slate-700" x-text="valTestResult?.message"></p>
+            </div>
+          </div>
+
+          <!-- Active JSON Schema Definition -->
+          <div class="space-y-2">
+            <h4 class="text-sm font-bold text-slate-800">Active `$jsonSchema` BSON Validator</h4>
+            <pre class="bg-slate-950 text-emerald-400 p-4 rounded-xl text-[11px] font-mono overflow-x-auto max-h-72 custom-scrollbar">
+{
+  "$jsonSchema": {
+    "bsonType": "object",
+    "required": ["medicine_id", "name", "category", "batches"],
+    "properties": {
+      "category": {
+        "enum": ["Antibiotic", "Painkiller", "Cardiology", "Diabetes", "Respiratory", "Vitamins", "Gastrointestinal"]
+      },
+      "batches": {
+        "bsonType": "array",
+        "items": {
+          "required": ["batch_no", "expiry_date", "quantity", "selling_price"],
+          "properties": {
+            "quantity": { "bsonType": "int", "minimum": 0 },
+            "selling_price": { "bsonType": ["double", "int"], "minimum": 0.01 }
+          }
+        }
+      }
+    }
+  }
+}</pre>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- ======================================================== -->
+  <!-- MODALS (ADD MEDICINE / ADD BATCH)                        -->
+  <!-- ======================================================== -->
+  
+  <!-- Add Medicine Modal -->
+  <div x-show="modals.addMed" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs" x-transition>
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4" @click.outside="closeModal('addMed')">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <h3 class="text-base font-bold text-slate-900">Add New Medicine to Catalog</h3>
+        <button @click="closeModal('addMed')" class="text-slate-400 hover:text-slate-700">✕</button>
+      </div>
+
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="font-bold text-slate-700">Medicine ID *</label>
+          <input type="text" x-model="newMed.medicine_id" class="w-full mt-1 py-2 px-3 rounded-lg border border-slate-200">
+        </div>
+        <div>
+          <label class="font-bold text-slate-700">Brand Name *</label>
+          <input type="text" x-model="newMed.name" placeholder="e.g. Augmentin 625 Duo" class="w-full mt-1 py-2 px-3 rounded-lg border border-slate-200">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="font-bold text-slate-700">Category *</label>
+            <select x-model="newMed.category" class="w-full mt-1 py-2 px-3 rounded-lg border border-slate-200 bg-white">
+              <template x-for="c in categories" :key="c">
+                <option :value="c" x-text="c"></option>
+              </template>
+            </select>
+          </div>
+          <div>
+            <label class="font-bold text-slate-700">Manufacturer</label>
+            <input type="text" x-model="newMed.manufacturer" class="w-full mt-1 py-2 px-3 rounded-lg border border-slate-200">
+          </div>
+        </div>
+        <div class="flex items-center space-x-2 pt-2">
+          <input type="checkbox" id="rxReq" x-model="newMed.prescription_required" class="rounded text-brand-600">
+          <label for="rxReq" class="font-semibold text-slate-700">Prescription Required (Schedule H)</label>
+        </div>
+      </div>
+
+      <div class="flex justify-end space-x-2 pt-3 border-t border-slate-100">
+        <button @click="closeModal('addMed')" class="px-4 py-2 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100">Cancel</button>
+        <button @click="saveMedicine()" class="px-4 py-2 rounded-lg text-xs font-bold bg-brand-600 hover:bg-brand-700 text-white shadow-sm">Save Medicine</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Batch Modal -->
+  <div x-show="modals.addBatch" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs" x-transition>
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4" @click.outside="closeModal('addBatch')">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <h3 class="text-base font-bold text-slate-900">Add Manufacturing Batch</h3>
+        <button @click="closeModal('addBatch')" class="text-slate-400 hover:text-slate-700">✕</button>
+      </div>
+
+      <p class="text-xs text-slate-500">Pushing batch into <span class="font-bold text-slate-800" x-text="targetMedForBatch?.name"></span></p>
+
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="font-bold text-slate-700">Batch Number *</label>
+          <input type="text" x-model="newBatch.batch_no" class="w-full mt-1 py-2 px-3 rounded-lg border border-slate-200">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="font-bold text-slate-700">Quantity (Units) *</label>
+            <input type="number" min="1" x-model="newBatch.quantity" class="w-full mt-1 py-2 px-3 rounded-lg border border-slate-200">
+          </div>
+          <div>
+            <label class="font-bold text-slate-700">Expires in (Days) *</label>
+            <input type="number" min="1" x-model="newBatch.expiry_days" class="w-full mt-1 py-2 px-3 rounded-lg border border-slate-200">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="font-bold text-slate-700">Cost Price (₹)</label>
+            <input type="number" min="0.1" step="0.5" x-model="newBatch.cost_price" class="w-full mt-1 py-2 px-3 rounded-lg border border-slate-200">
+          </div>
+          <div>
+            <label class="font-bold text-slate-700">Selling Price (₹) *</label>
+            <input type="number" min="0.1" step="0.5" x-model="newBatch.selling_price" class="w-full mt-1 py-2 px-3 rounded-lg border border-slate-200">
+          </div>
+        </div>
+      </div>
+
+      <div class="flex justify-end space-x-2 pt-3 border-t border-slate-100">
+        <button @click="closeModal('addBatch')" class="px-4 py-2 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100">Cancel</button>
+        <button @click="saveBatch()" class="px-4 py-2 rounded-lg text-xs font-bold bg-brand-600 hover:bg-brand-700 text-white shadow-sm">Push Batch ($push)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION -->
+  <div x-show="toast.show" 
+       x-transition
+       class="fixed bottom-5 right-5 z-50 flex items-center space-x-2.5 px-4 py-3 rounded-xl shadow-lg border text-xs font-semibold"
+       :class="toast.type === 'error' ? 'bg-rose-900 text-white border-rose-800' : 'bg-slate-900 text-white border-slate-800'">
+    <i data-lucide="info" class="w-4 h-4 text-brand-400"></i>
+    <span x-text="toast.message"></span>
+  </div>
+
+  <!-- APP LOGIC -->
+  <script>
+    function pharmaApp() {
+      return {
+        activeTab: 'dashboard',
+        loading: false,
+        dbStatus: {},
+        medicines: [],
+        sales: [],
+        categories: ['Antibiotic', 'Painkiller', 'Cardiology', 'Diabetes', 'Respiratory', 'Vitamins', 'Gastrointestinal'],
+        searchQuery: '',
+        selectedCategory: '',
+        nearExpiryBatches: [],
+        lowStockMedicines: [],
+        categoryRevenue: [],
+        topSellers: [],
+        facets: {},
+        expiryDays: 60,
+        valTestResult: null,
+        testingVal: false,
+        
+        // POS State
+        posMedId: '',
+        posBatchNo: '',
+        posQty: 1,
+        posCustomer: 'Priya Sharma',
+        posPhone: '+91-9876543210',
+        posPayment: 'UPI',
+
+        // Modals
+        modals: { addMed: false, addBatch: false },
+        newMed: { medicine_id: '', name: '', category: 'Antibiotic', manufacturer: 'Cipla Ltd', prescription_required: true, min_reorder_level: 50 },
+        targetMedForBatch: null,
+        newBatch: { batch_no: '', quantity: 100, expiry_days: 365, cost_price: 10, selling_price: 18 },
+
+        // Toast
+        toast: { show: false, message: '', type: 'success' },
+
+        chartInstance: null,
+
+        async initApp() {
+          await this.fetchStatus();
+          await this.fetchMedicines();
+          await this.fetchSales();
+          await this.fetchNearExpiry();
+          await this.fetchLowStock();
+          await this.fetchCategoryRevenue();
+          await this.fetchTopSellers();
+          await this.fetchFacets();
+          await this.initChart();
+          this.$nextTick(() => lucide.createIcons());
+        },
+
+        showToast(message, type = 'success') {
+          this.toast = { show: true, message, type };
+          setTimeout(() => { this.toast.show = false; }, 3500);
+        },
+
+        formatNum(n) {
+          return Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+        },
+
+        getTotalStock(med) {
+          return (med.batches || []).reduce((acc, b) => acc + (b.quantity || 0), 0);
+        },
+
+        get inStockMedicines() {
+          return this.medicines.filter(m => this.getTotalStock(m) > 0);
+        },
+
+        get selectedPosMed() {
+          return this.medicines.find(m => m.medicine_id === this.posMedId);
+        },
+
+        get selectedPosBatch() {
+          if (!this.selectedPosMed) return null;
+          return (this.selectedPosMed.batches || []).find(b => b.batch_no === this.posBatchNo);
+        },
+
+        onPosMedChange() {
+          if (this.selectedPosMed && this.selectedPosMed.batches?.length > 0) {
+            const firstActive = this.selectedPosMed.batches.find(b => b.quantity > 0);
+            this.posBatchNo = firstActive ? firstActive.batch_no : '';
+            this.posQty = 1;
+          } else {
+            this.posBatchNo = '';
+          }
+        },
+
+        onPosBatchChange() {
+          this.posQty = 1;
+        },
+
+        async fetchStatus() {
+          try {
+            const res = await fetch('/api/status');
+            this.dbStatus = await res.json();
+          } catch (e) { console.error(e); }
+        },
+
+        async fetchMedicines() {
+          try {
+            let url = '/api/medicines?';
+            if (this.searchQuery) url += `q=${encodeURIComponent(this.searchQuery)}&`;
+            if (this.selectedCategory) url += `category=${encodeURIComponent(this.selectedCategory)}&`;
+            const res = await fetch(url);
+            this.medicines = await res.json();
+            this.$nextTick(() => lucide.createIcons());
+          } catch (e) { console.error(e); }
+        },
+
+        async fetchSales() {
+          try {
+            const res = await fetch('/api/sales');
+            this.sales = await res.json();
+          } catch (e) { console.error(e); }
+        },
+
+        async fetchNearExpiry() {
+          try {
+            const res = await fetch(`/api/aggregations/expiry?days=${this.expiryDays}`);
+            this.nearExpiryBatches = await res.json();
+          } catch (e) { console.error(e); }
+        },
+
+        async fetchLowStock() {
+          try {
+            const res = await fetch('/api/aggregations/low-stock');
+            this.lowStockMedicines = await res.json();
+          } catch (e) { console.error(e); }
+        },
+
+        async fetchFacets() {
+          try {
+            const res = await fetch('/api/aggregations/facets');
+            this.facets = await res.json();
+          } catch (e) { console.error(e); }
+        },
+
+        async fetchCategoryRevenue() {
+          try {
+            const res = await fetch('/api/aggregations/revenue');
+            this.categoryRevenue = await res.json();
+          } catch (e) { console.error(e); }
+        },
+
+        async fetchTopSellers() {
+          try {
+            const res = await fetch('/api/aggregations/top-sellers?limit=5');
+            this.topSellers = await res.json();
+          } catch (e) { console.error(e); }
+        },
+
+        async seedData() {
+          this.loading = true;
+          try {
+            const res = await fetch('/api/seed', { method: 'POST' });
+            const data = await res.json();
+            this.showToast(`Database seeded with ${data.medicines_count} medicines!`);
+            await this.initApp();
+          } catch (e) {
+            this.showToast('Failed to seed data', 'error');
+          } finally {
+            this.loading = false;
+          }
+        },
+
+        async processCheckout() {
+          if (!this.selectedPosBatch) return;
+          const payload = {
+            invoice_no: `INV-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`,
+            sale_date: new Date().toISOString(),
+            customer: { name: this.posCustomer, phone: this.posPhone, doctor_name: 'Dr. Self' },
+            items: [{
+              medicine_id: this.selectedPosMed.medicine_id,
+              medicine_name: this.selectedPosMed.name,
+              batch_no: this.selectedPosBatch.batch_no,
+              quantity: parseInt(this.posQty),
+              unit_price: parseFloat(this.selectedPosBatch.selling_price),
+              subtotal: parseFloat(this.posQty * this.selectedPosBatch.selling_price)
+            }],
+            total_amount: parseFloat(this.posQty * this.selectedPosBatch.selling_price),
+            payment_mode: this.posPayment,
+            status: 'COMPLETED'
+          };
+
+          try {
+            const res = await fetch('/api/sales', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (data.status === 'success') {
+              this.showToast(`Sale recorded! Invoice: ${data.invoice_no}`);
+              await this.fetchMedicines();
+              await this.fetchSales();
+              await this.fetchFacets();
+              await this.initChart();
+            } else {
+              this.showToast(data.error || 'Sale failed', 'error');
+            }
+          } catch (e) {
+            this.showToast('Network error processing sale', 'error');
+          }
+        },
+
+        async testValidation() {
+          this.testingVal = true;
+          try {
+            const res = await fetch('/api/test-validation', { method: 'POST' });
+            this.valTestResult = await res.json();
+            this.$nextTick(() => lucide.createIcons());
+          } catch (e) {
+            this.valTestResult = { expected_error_caught: false, message: 'Request failed' };
+          } finally {
+            this.testingVal = false;
+          }
+        },
+
+        openModal(name) {
+          if (name === 'addMed') {
+            this.newMed.medicine_id = 'MED-' + Math.floor(1000 + Math.random() * 9000);
+          }
+          this.modals[name] = true;
+        },
+
+        closeModal(name) {
+          this.modals[name] = false;
+        },
+
+        openAddBatchModal(med) {
+          this.targetMedForBatch = med;
+          this.newBatch.batch_no = 'BAT-' + Date.now().toString().slice(-4);
+          this.modals.addBatch = true;
+        },
+
+        async saveMedicine() {
+          if (!this.newMed.name) return this.showToast('Drug name is required', 'error');
+          try {
+            const res = await fetch('/api/medicines', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ...this.newMed, batches: [] })
+            });
+            const data = await res.json();
+            if (data.status === 'success') {
+              this.showToast('Medicine created in MongoDB!');
+              this.closeModal('addMed');
+              await this.fetchMedicines();
+            } else {
+              this.showToast(data.error || 'Creation failed', 'error');
+            }
+          } catch (e) { this.showToast('Error creating medicine', 'error'); }
+        },
+
+        async saveBatch() {
+          if (!this.targetMedForBatch) return;
+          try {
+            const res = await fetch(`/api/medicines/${this.targetMedForBatch.medicine_id}/batch`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(this.newBatch)
+            });
+            const data = await res.json();
+            if (data.status === 'success') {
+              this.showToast('Batch successfully pushed via $push!');
+              this.closeModal('addBatch');
+              await this.fetchMedicines();
+              await this.fetchNearExpiry();
+            } else {
+              this.showToast(data.error || 'Batch add failed', 'error');
+            }
+          } catch (e) { this.showToast('Error adding batch', 'error'); }
+        },
+
+        async deleteMedicine(id, name) {
+          if (!confirm(`Are you sure you want to delete ${name}?`)) return;
+          try {
+            const res = await fetch(`/api/medicines/${id}?force=true`, { method: 'DELETE' });
+            const data = await res.json();
+            if (data.status === 'success') {
+              this.showToast('Medicine deleted.');
+              await this.fetchMedicines();
+            } else {
+              this.showToast(data.error || 'Delete failed', 'error');
+            }
+          } catch (e) { this.showToast('Error deleting', 'error'); }
+        },
+
+        async deleteBatch(medId, batchNo) {
+          if (!confirm(`Delete batch ${batchNo} via $pull?`)) return;
+          try {
+            const res = await fetch(`/api/medicines/${medId}/batch/${batchNo}`, { method: 'DELETE' });
+            const data = await res.json();
+            if (data.status === 'success') {
+              this.showToast(`Batch ${batchNo} removed ($pull).`);
+              await this.fetchMedicines();
+              await this.fetchNearExpiry();
+            }
+          } catch (e) { this.showToast('Error removing batch', 'error'); }
+        },
+
+        async initChart() {
+          try {
+            const res = await fetch('/api/aggregations/revenue');
+            const data = await res.json();
+            const ctx = document.getElementById('categoryRevenueChart');
+            if (!ctx) return;
+
+            const labels = data.map(d => d.category);
+            const revenues = data.map(d => d.total_revenue);
+
+            if (this.chartInstance) {
+              this.chartInstance.destroy();
+            }
+
+            this.chartInstance = new Chart(ctx, {
+              type: 'bar',
+              data: {
+                labels,
+                datasets: [{
+                  label: 'Revenue (₹)',
+                  data: revenues,
+                  backgroundColor: '#16a34a',
+                  borderRadius: 8,
+                }]
+              },
+              options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: { display: false }
+                },
+                scales: {
+                  y: {
+                    grid: { color: '#f1f5f9' },
+                    ticks: { font: { family: 'Plus Jakarta Sans', size: 10 } }
+                  },
+                  x: {
+                    grid: { display: false },
+                    ticks: { font: { family: 'Plus Jakarta Sans', size: 10 } }
+                  }
+                }
+              }
+            });
+          } catch (e) { console.error('Chart error', e); }
+        }
+
+      }
+    }
+  </script>
+</body>
+</html>

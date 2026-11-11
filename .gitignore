@@ -1,0 +1,38 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# ---- Virtual environments ----
+.venv/
+venv/
+env/
+ENV/
+
+# ---- Environment secrets ----
+.env
+*.local.env
+
+# ---- Pytest / coverage ----
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ---- Editors / IDE ----
+.vscode/
+.idea/
+*.swp
+
+# ---- OS ----
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- Excluded from public repo (viva prep / AI planning docs) ----
+docs/VIVA_CHEAT_SHEET.md
+docs/superpowers/
+docs/
